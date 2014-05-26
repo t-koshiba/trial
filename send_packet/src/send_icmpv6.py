@@ -142,7 +142,7 @@ class SimpleMonitor(simple_switch_13.SimpleSwitch13):
         sendpkt = packet.Packet()
         sendpkt.add_protocol(ethernet.ethernet(ethertype=ether.ETH_TYPE_8021Q, dst=dst, src=src))
         sendpkt.add_protocol(vlan.vlan(pcp=0, cfi=0, vid=100, ethertype=ether.ETH_TYPE_IPV6))
-        sendpkt.add_protocol(ipv6.ipv6(src=pkt_ipv6[0].src, dst=pkt_ipv6[0].dst))
+        sendpkt.add_protocol(ipv6.ipv6(src=pkt_ipv6[0].src, dst=pkt_ipv6[0].dst, nxt=inet.IPPROTO_ICMPV6))
         sendpkt.add_protocol(icmpv6.icmpv6(type_=icmpv6.ICMPV6_MEMBERSHIP_QUERY, 
                                 data=icmpv6.mldv2_query(address='::')))
         sendpkt.serialize()
