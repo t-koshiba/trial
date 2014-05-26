@@ -146,12 +146,14 @@ class SimpleMonitor(simple_switch_13.SimpleSwitch13):
         sendpkt.add_protocol(icmpv6.icmpv6(type_=icmpv6.ICMPV6_MEMBERSHIP_QUERY, 
                                 data=icmpv6.mldv2_query(address='::')))
         sendpkt.serialize()
-        self.logger.debug("packet-out %s" % (sendpkt,))
+        self.logger.debug("******** create packet :\n %s" % (sendpkt,))
         print "\n"
         data = sendpkt.data
 
         #out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port, actions=actions, data=data)
         out = parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=in_port, actions=actions, data=data)
+        self.logger.debug("******** send :\n datapath : %s,\n in_port : %s,\n" \
+                            % (str(datapath), str(in_port)))
         datapath.send_msg(out)
 
 
