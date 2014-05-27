@@ -9,9 +9,6 @@ from ryu.ofproto import ofproto_v1_3, ofproto_v1_3_parser, ether, inet
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet, ipv6, icmpv6, vlan
 from ryu.lib import hub
-import datetime
-import time
-import csv
 import threading
 
 class SimpleMonitor(simple_switch_13.SimpleSwitch13):
@@ -29,19 +26,11 @@ class SimpleMonitor(simple_switch_13.SimpleSwitch13):
     # send interval(sec)
     WAIT_TIME = 10
     
-    '''
-    Request_statsCsv = './csv/Request_stats.csv'
-    EventOFPFlowStatsReplyCsv = './csv/EventOFPFlowStatsReply.csv'
-    EventOFPPortStatsReplyCsv = './csv/EventOFPPortStatsReply.csv'
-    EventOFPPacketInCsv = './csv/EventOFPPacketIn.csv'
-    '''
-
     def __init__(self, *args, **kwargs):
         super(SimpleMonitor, self).__init__(*args, **kwargs)
         self.datapaths = {}
         self.monitor_thread = hub.spawn(self._send_regularly)
         self.logger.debug('__init__ : %s', self.PROTPCOL)
-        #self.csv_title_create        
         
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -169,8 +158,6 @@ class SimpleMonitor(simple_switch_13.SimpleSwitch13):
         out = parser.OFPPacketOut(datapath=datapath, buffer_id=0xffffffff, in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
 
-
-
     @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, DEAD_DISPATCHER])
     def _state_change_handler(self, ev):
         datapath = ev.datapath
@@ -202,148 +189,3 @@ class SimpleMonitor(simple_switch_13.SimpleSwitch13):
             self.logger.debug("******** send packet :\n %s\n" % (sendpkt,))
             hub.sleep(self.WAIT_TIME)
 
-
-    def _request_stats(self, datapath):
-       
-        self.logger.debug('packet_in_cnt=' + str(self.packet_in_cnt))
-        self.logger.debug('send stats request: %016x', datapath.id)
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-
-        req = parser.OFPFlowStatsRequest(datapath)
-        datapath.send_msg(req)
-
-        req = parser.OFPPortStatsRequest(datapath, 0, ofproto.OFPP_ANY)
-        datapath.send_msg(req)
-
-        req = parser.OFPTableStatsRequest(datapath, 0, ofproto.OFPP_ANY)
-        datapath.send_msg(req)
-       
-#    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
-    def _flow_stats_reply_handler(self, ev):
-        
-        now = datetime.datetime.now()
-
-        body = ev.msg.body
-
-        write = open(self.EventOFPFlowStatsReplyCsv, 'a')
-        csvWriter = csv.writer(write)
-
-        self.logger.debug('time                    ,'
-                         'datapath        ,'
-                         'in-port ,eth-dst          ,'
-                         'out-port,packets ,bytes')
-
-        for stat in sorted([flow for flow in body if flow.priority == 1],
-                           key=lambda flow: (flow.match['in_port'],
-                                             flow.match['eth_dst'])):
-
-            self.logger.debug('%024s,%016x,%8x,%17s,%8x,%8d,%8d',
-                             now.strftime('%Y/%m/%d %H:%M:%S.') + '%04d' % (now.microsecond // 1000),
-                             ev.msg.datapath.id,
-                             stat.match['in_port'], stat.match['eth_dst'],
-                             stat.instructions[0].actions[0].port,
-                             stat.packet_count, stat.byte_count, 
-                             stat.packet_count - self.before_packet_count, stat.byte_count - self.before_byte_count)
-
-            now = datetime.datetime.now()
-            listData = []
-            listData.append(str(now.strftime('%Y/%m/%d %H:%M:%S.') + '%04d' % (now.microsecond // 1000)))
-            listData.append(str(dpid))
-            listData.append(str(ev.msg.datapath.id))
-            listData.append(str(stat.match['in_port']))
-            listData.append(str(stat.match['eth_dst']))
-            listData.append(str(stat.packet_count))
-            listData.append(str(stat.byte_count))
-            csvWriter.writerow(listData)
-            
-        write.close
-
-#    @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
-    def _port_stats_reply_handler(self, ev):
-        now = datetime.datetime.now()
-
-        body = ev.msg.body
-
-        writfile = open(self.EventOFPPortStatsReplyCsv, 'a')
-        csvWriter = csv.writer(writfile)
-        
-        self.logger.debug('time                    ,'
-                         'datapath        ,port    ,'
-                         'rx-pkts ,rx-bytes,rx-error,'
-                         'tx-pkts tx-bytes,tx-error')
-        for stat in sorted(body, key=attrgetter('port_no')):
-
-            self.logger.debug('%24s,%016x,%8x,%8d,%8d,%8d,%8d,%8d,%8d', 
-                             now.strftime('%Y/%m/%d %H:%M:%S.') + '%04d' % (now.microsecond // 1000),
-                             ev.msg.datapath.id, stat.port_no,
-                             stat.rx_packets, stat.rx_bytes, stat.rx_errors,
-                             stat.tx_packets, stat.tx_bytes, stat.tx_errors)
-
-            now = datetime.datetime.now()
-            listData = []
-            listData.append(str(now.strftime('%Y/%m/%d %H:%M:%S.') + '%04d' % (now.microsecond // 1000)))
-            listData.append(str(ev.msg.datapath.id))
-            listData.append(str(stat.port_no))
-            listData.append(str(stat.rx_packets))
-            listData.append(str(stat.rx_bytes))
-            listData.append(str(stat.rx_errors))
-            listData.append(str(stat.tx_packets))
-            listData.append(str(stat.tx_bytes))
-            listData.append(str(stat.tx_errors))
-            csvWriter.writerow(listData)
-
-        writfile.close
-
-    def csv_title_create():
-        ###CSV_TILE Create (Request_statsCsv)
-        writfile = open(self.Request_statsCsv, 'a')
-        csvWriter = csv.writer(writfile)
-        titelData = []
-        titelData.append('run_time')
-        titelData.append('packet_in_cnt')
-        titelData.append('packet_in_cnt/s')
-        csvWriter.writerow(titelData)
-        writfile.close
-        
-        ###CSV_TILE Create (EventOFPFlowStatsReplyCsv)
-        writfile = open(self.EventOFPFlowStatsReplyCsv, 'a')
-        csvWriter = csv.writer(writfile)
-        titelData = []
-        titelData.append('run_time')
-        titelData.append('datapath')
-        titelData.append('in-port')
-        titelData.append('eth-dst')
-        titelData.append('packets')
-        titelData.append('bytes')
-        csvWriter.writerow(titelData)
-        writfile.close
-
-        ###CSV_TILE Create (EventOFPPortStatsReplyCsv)
-        writfile = open(self.EventOFPPortStatsReplyCsv, 'a')
-        csvWriter = csv.writer(writfile)
-        titelData = []
-        titelData.append('run_time')
-        titelData.append('datapath')
-        titelData.append('port')
-        titelData.append('rx-pkts')
-        titelData.append('rx-bytes')
-        titelData.append('rx-error')
-        titelData.append('tx-pkts')
-        titelData.append('tx-bytes')
-        titelData.append('tx-error')
-        csvWriter.writerow(titelData)
-        writfile.close
-
-        ###CSV_TILE Create (EventOFPPacketInCsv)
-        writfile = open(self.EventOFPPacketInCsv, 'a')
-        csvWriter = csv.writer(writfile)
-        titelData = []
-        titelData.append('run_time')
-        titelData.append('datapathid')
-        titelData.append('src')
-        titelData.append('dst')
-        titelData.append('in_port')
-        titelData.append('packet_in_cnt')
-        csvWriter.writerow(titelData)
-        writfile.close
