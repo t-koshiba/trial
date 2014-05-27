@@ -160,9 +160,17 @@ class SimpleMonitor(simple_switch_13.SimpleSwitch13):
             pcp=0, cfi=0, vid=100, ethertype=ether.ETH_TYPE_IPV6))
         sendpkt.add_protocol(ipv6.ipv6(
             src=srcip, dst=dstip, nxt=inet.IPPROTO_ICMPV6))
+        '''
         sendpkt.add_protocol(icmpv6.icmpv6(
             type_=icmpv6.ICMPV6_MEMBERSHIP_QUERY,
             data=icmpv6.mldv2_query(address='::')))
+        '''
+        sendpkt.add_protocol(icmpv6.icmpv6(
+            type_=icmpv6.MLDV2_LISTENER_REPORT,
+            data=icmpv6.mldv2_report(
+                record_num=2, records=[
+                    icmpv6.mldv2_report_group(type_=1, address='::'),
+                    icmpv6.mldv2_report_group(type_=2, address='::')])))
         sendpkt.serialize()
         return sendpkt
 
