@@ -1,13 +1,9 @@
-from operator import attrgetter
-
-from ryu.ofproto import ether
 from ryu.app import simple_switch_13
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3, ofproto_v1_3_parser, ether, inet
-from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet, ipv6, icmpv6, vlan
+from ryu.lib.packet import packet, ethernet, ipv6, icmpv6, vlan
 from ryu.lib import hub
 import threading
 
@@ -16,30 +12,26 @@ class SimpleMonitor(simple_switch_13.SimpleSwitch13):
 
     # get_protocol(eth/ipv6)
     PROTPCOL = ['eth', 'ipv6']
-    
-    packet_in_cnt = int()
-    packet_in_cnt_s = int()
-    
+
+    # message when connected switch
     msg = None
-    loop = True
     
     # send interval(sec)
-    WAIT_TIME = 10
+    WAIT_TIME = 5
     
     def __init__(self, *args, **kwargs):
         super(SimpleMonitor, self).__init__(*args, **kwargs)
         self.datapaths = {}
-        self.monitor_thread = hub.spawn(self._send_regularly)
         self.logger.debug('__init__ : %s', self.PROTPCOL)
-        
+
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         self.msg = ev.msg
-        self.loop = False
         datapath = ev.msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
+        self.monitor_thread = hub.spawn(self._send_regularly)
 
         # install table-miss flow entry
         #
@@ -60,7 +52,7 @@ class SimpleMonitor(simple_switch_13.SimpleSwitch13):
         actions = [ofproto_v1_3_parser.OFPActionOutput(ofproto_v1_3.OFPP_NORMAL)]
         instructions = [ofproto_v1_3_parser.OFPInstructionActions(ofproto_v1_3.OFPIT_APPLY_ACTIONS, actions)]
         # match
-#            match = ofproto_v1_3_parser.OFPMatch(eth_type=ether.ETH_TYPE_IPV6, ip_proto=inet.IPPROTO_ICMP6)
+        #    match = ofproto_v1_3_parser.OFPMatch(eth_type=ether.ETH_TYPE_IPV6, ip_proto=inet.IPPROTO_ICMP6)
         # miss match
         match = ofproto_v1_3_parser.OFPMatch(eth_type=ether.ETH_TYPE_IPV6, ip_proto=inet.IPPROTO_ICMP)
         flow_mod_msg = ofproto_v1_3_parser.OFPFlowMod(datapath, match=match, instructions=instructions)
@@ -70,9 +62,6 @@ class SimpleMonitor(simple_switch_13.SimpleSwitch13):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
-        self.packet_in_cnt += 1
-        self.packet_in_cnt_s += 1
-
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
@@ -101,7 +90,7 @@ class SimpleMonitor(simple_switch_13.SimpleSwitch13):
                 self.logger.debug('icmpv6= %s icmpv6.ND_NEIGHBOR_SOLICIT = %s' , str(pkt_icmpv6), icmpv6.ND_NEIGHBOR_SOLICIT)
                 
                 if not pkt_icmpv6[0].type_ in [icmpv6.MLDV2_LISTENER_REPORT, icmpv6.ICMPV6_MEMBERSHIP_QUERY]:
-                    print "icmpv6.type is " + pkt_icmpv6[0].type
+                    print "icmpv6.type is " + str(pkt_icmpv6[0].type_)
                     return
             
         dpid = datapath
@@ -143,6 +132,7 @@ class SimpleMonitor(simple_switch_13.SimpleSwitch13):
 
     def createPacket(self, src, dst, srcip, dstip):
         # create send packet 
+        #   ether - vlan - ipv6 - icmpv6 ( - mldv2 )
         sendpkt = packet.Packet()
         sendpkt.add_protocol(ethernet.ethernet(ethertype=ether.ETH_TYPE_8021Q, dst=dst, src=src))
         sendpkt.add_protocol(vlan.vlan(pcp=0, cfi=0, vid=100, ethertype=ether.ETH_TYPE_IPV6))
@@ -172,7 +162,6 @@ class SimpleMonitor(simple_switch_13.SimpleSwitch13):
 
 
     def _send_regularly(self):
-        while(self.loop): hub.sleep(1)
         datapath = self.msg.datapath
         parser = datapath.ofproto_parser
         ofproto = datapath.ofproto
@@ -183,8 +172,16 @@ class SimpleMonitor(simple_switch_13.SimpleSwitch13):
         dstip= "::11"
         in_port = 1
         
+        sendpkt = self.createPacket(src, dst, srcip, dstip)
         while True:
-            sendpkt = self.createPacket(src, dst, srcip, dstip)
+            # wait for regist datapath before send
+            if not datapath.id in self.datapaths: hub.sleep(1)
+            else: break
+        
+        while True:
+            # stop send when delete datapath
+            if not datapath.id in self.datapaths: break
+            
             self.sendPacketOut(parser, datapath, in_port, actions, sendpkt.data)
             self.logger.debug("******** send packet :\n %s\n" % (sendpkt,))
             hub.sleep(self.WAIT_TIME)
