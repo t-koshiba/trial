@@ -2,6 +2,7 @@
 # http://ja.pymotw.com/2/asyncore/
 import asyncore
 import logging
+from datetime import datetime
 
 class EchoServer(asyncore.dispatcher):
     """Receives connections and establishes handlers for each client.
@@ -10,17 +11,17 @@ class EchoServer(asyncore.dispatcher):
     def __init__(self, address):
         self.logger = logging.getLogger('EchoServer')
         asyncore.dispatcher.__init__(self)
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.create_socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.bind(address)
         self.address = self.socket.getsockname()
-        self.logger.debug('binding to %s', self.address)
+        self.logger.debug('%s binding to %s', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)), self.address)
         self.listen(1)
         return
 
     def handle_accept(self):
         # クライアントがソケットへ接続したときに呼び出される
         client_info = self.accept()
-        self.logger.debug('handle_accept() -> %s', client_info[1])
+        self.logger.debug('%s handle_accept() -> %s', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)), client_info[1])
         EchoHandler(sock=client_info[0])
         # 一度に一クライアントのみを扱うのでハンドラを設定したらクローズする
         # 普通はクローズせずにサーバは停止命令を受け取るか、永遠に実行される
@@ -28,7 +29,7 @@ class EchoServer(asyncore.dispatcher):
         return
     
     def handle_close(self):
-        self.logger.debug('handle_close()')
+        self.logger.debug('%s handle_close()', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)))
         self.close()
         return
 
@@ -46,7 +47,7 @@ class EchoHandler(asyncore.dispatcher):
     def writable(self):
         """We want to write if we have received data."""
         response = bool(self.data_to_write)
-        self.logger.debug('writable() -> %s', response)
+        self.logger.debug('%s writable() -> %s', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)), response)
         return response
     
     def handle_write(self):
@@ -56,18 +57,18 @@ class EchoHandler(asyncore.dispatcher):
         if sent < len(data):
             remaining = data[sent:]
             self.data.to_write.append(remaining)
-        self.logger.debug('handle_write() -> (%d) "%s"', sent, data[:sent])
+        self.logger.debug('%s handle_write() -> (%d) "%s"', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)), sent, data[:sent])
         if not self.writable():
             self.handle_close()
 
     def handle_read(self):
         """Read an incoming message from the client and put it into our outgoing queue."""
         data = self.recv(self.chunk_size)
-        self.logger.debug('handle_read() -> (%d) "%s"', len(data), data)
+        self.logger.debug('%s handle_read() -> (%d) "%s"', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)), len(data), data)
         self.data_to_write.insert(0, data)
     
     def handle_close(self):
-        self.logger.debug('handle_close()')
+        self.logger.debug('%s handle_close()', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)))
         self.close()
 
 
@@ -75,27 +76,27 @@ class EchoClient(asyncore.dispatcher):
     """Sends messages to the server and receives responses.
     """
     
-    def __init__(self, host, port, message, chunk_size=512):
+    def __init__(self, host, port, message, chunk_size=1024):
         self.message = message
         self.to_send = message
         self.received_data = []
         self.chunk_size = chunk_size
         self.logger = logging.getLogger('EchoClient')
         asyncore.dispatcher.__init__(self)
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.logger.debug('connecting to %s', (host, port))
+        self.create_socket(socket.AF_INET6, socket.SOCK_STREAM)
+        self.logger.debug('%s connecting to %s', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)), (host, port))
         self.connect((host, port))
         return
         
     def handle_connect(self):
-        self.logger.debug('handle_connect()')
+        self.logger.debug('%s handle_connect()', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)))
     
     def handle_close(self):
-        self.logger.debug('handle_close()')
+        self.logger.debug('%s handle_close()', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)))
         self.close()
         received_message = ''.join(self.received_data)
         if received_message == self.message:
-            self.logger.debug('RECEIVED COPY OF MESSAGE')
+            self.logger.debug('%s RECEIVED COPY OF MESSAGE', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)))
         else:
             self.logger.debug('ERROR IN TRANSMISSION')
             self.logger.debug('EXPECTED "%s"', self.message)
@@ -103,34 +104,34 @@ class EchoClient(asyncore.dispatcher):
         return
     
     def writable(self):
-        self.logger.debug('writable() -> %s', bool(self.to_send))
+        self.logger.debug('%s writable() -> %s', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)), bool(self.to_send))
         return bool(self.to_send)
 
     def handle_write(self):
         sent = self.send(self.to_send[:self.chunk_size])
-        self.logger.debug('handle_write() -> (%d) "%s"', sent, self.to_send[:sent])
+        self.logger.debug('%s handle_write() -> (%d) "%s"', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)), sent, self.to_send[:sent])
         self.to_send = self.to_send[sent:]
 
     def handle_read(self):
         data = self.recv(self.chunk_size)
-        self.logger.debug('handle_read() -> (%d) "%s"', len(data), data)
+        self.logger.debug('%s handle_read() -> (%d) "%s"', str(datetime.now().strftime('%H:%M:%S.') + '%04d' % (datetime.now().microsecond // 100)), len(data), data)
         self.received_data.append(data)
         
 
 if __name__ == '__main__':
     import socket
-    print "******** __main__ START"
 
     logging.basicConfig(level=logging.DEBUG,
                         format='%(name)s: %(message)s',
                         )
 
-    address = ('localhost', 0) # カーネルにポート番号を割り当てさせる
+#    address = ('localhost', 0) # カーネルにポート番号を割り当てさせる
+    address = ('::1', 0) # カーネルにポート番号を割り当てさせる
     server = EchoServer(address)
-    ip, port = server.address # 与えられたポート番号を調べる
+#    ip, port = server.address # 与えられたポート番号を調べる
+    ip, port, flowinfo, scopeid = server.address # 与えられたポート番号を調べる
 
 #    client = EchoClient(ip, port, message=open('lorem.txt', 'r').read())
-    client = EchoClient(ip, port, message="test Message")
+    client = EchoClient(ip, port, message="********SEND MESSAGE********")
 
     asyncore.loop()
-    print "******** __main__ END"
