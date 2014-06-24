@@ -1,4 +1,2 @@
 #src             ,dst              ,srcip                    ,dstip  ,multicastaddresses
-#d4:3d:7e:4a:43:fd,33:33:fe:4a:43:fd,fe80::d63d:7eff:fe4a:43fd,FF02::1,ff38::1
-#00:00:00:00:00:01,00:00:00:00:00:02,fe80::200:ff:fe00:1,fe80::200:ff:fe00:2,ff38::1
-46:1e:0d:ab:10:97,33:33:00:00:00:01,fe80::441e:dff:feab:1097,FF02::1,ff38::1
+d4:3d:7e:4a:43:fd,33:33:00:00:00:01,fe80::d63d:7eff:fe4a:43fd,FF02::1,ff38::1
